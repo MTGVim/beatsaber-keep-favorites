@@ -23,6 +23,7 @@ permissions:
 env:
   module_id: KeepFavorites
   qmod_name: KeepFavorites
+  beat_saber_package_version: 1.40.8_7379
 
 jobs:
   build:
@@ -62,6 +63,15 @@ jobs:
         working-directory: ./mod
         shell: bash
         run: qpm qmod manifest
+
+      - name: Verify generated manifest metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./scripts/verify_release_metadata.py \
+            --qpm ./mod/qpm.json \
+            --manifest ./mod/mod.json \
+            --expected-package-version '${{ env.beat_saber_package_version }}'
 
       - name: Build shared library
         working-directory: ./mod

@@ -12,6 +12,8 @@ permissions:
 env:
   module_id: KeepFavorites
   qmod_name: KeepFavorites
+  beat_saber_display_version: 1.40.8
+  beat_saber_package_version: 1.40.8_7379
 
 jobs:
   release:
@@ -48,21 +50,6 @@ jobs:
           cache: true
           resolve_ndk: false
 
-      - name: Generate mod manifest
-        working-directory: ./mod
-        shell: bash
-        run: qpm qmod manifest
-
-      - name: Build shared library
-        working-directory: ./mod
-        shell: pwsh
-        run: ./scripts/build.ps1
-
-      - name: Create qmod
-        working-directory: ./mod
-        shell: pwsh
-        run: ./scripts/createqmod.ps1 KeepFavorites
-
       - name: Resolve tag metadata
         id: meta
         shell: bash
@@ -82,6 +69,31 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prev_tag=$prev_tag" >> "$GITHUB_OUTPUT"
 
+      - name: Generate mod manifest
+        working-directory: ./mod
+        shell: bash
+        run: qpm qmod manifest
+
+      - name: Verify generated manifest metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./scripts/verify_release_metadata.py \
+            --qpm ./mod/qpm.json \
+            --manifest ./mod/mod.json \
+            --expected-version '${{ steps.meta.outputs.version }}' \
+            --expected-package-version '${{ env.beat_saber_package_version }}'
+
+      - name: Build shared library
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/build.ps1
+
+      - name: Create qmod
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/createqmod.ps1 KeepFavorites
+
       - name: Stage release artifacts
         shell: bash
         run: |
@@ -99,7 +111,7 @@ jobs:
             --repo '${{ github.repository }}' \
             --commit '${{ github.sha }}' \
             --run-url 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}' \
-            --target-version '1.40.8' \
+            --target-version '${{ env.beat_saber_display_version }}' \
             --prev-tag '${{ steps.meta.outputs.prev_tag }}' \
             --output "$RUNNER_TEMP/keepfavorites-release/NOTES.md"
           ls -l "$RUNNER_TEMP/keepfavorites-release"

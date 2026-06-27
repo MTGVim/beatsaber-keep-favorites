@@ -140,7 +140,7 @@ MAKE_HOOK_MATCH(
         return;
     }
 
-    PaperLogger.info("KeepFavorites dry-run summary: {}", KeepFavorites::Core::BuildSummary(*plan));
+    PaperLogger.info("KeepFavorites scan summary: {}", KeepFavorites::Core::BuildSummary(*plan));
 
     int sampleBudget = 5;
     for (auto const& item : plan->items) {
@@ -153,7 +153,7 @@ MAKE_HOOK_MATCH(
     // Temporarily avoid auto-showing BSML modal here.
     // Main menu lifecycle timing on Quest 1.40.8 is sensitive, and showing a modal
     // immediately after DidActivate can black-screen the menu before the content is stable.
-    PaperLogger.info("KeepFavorites prompt suppressed for now: dry-run completed without presenting UI");
+    PaperLogger.info("KeepFavorites prompt suppressed for now: scan completed without presenting the legacy modal");
 }
 
 }

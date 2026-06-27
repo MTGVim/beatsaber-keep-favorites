@@ -2,6 +2,13 @@
 
 This file is the source of truth for tagged release notes.
 
+## [0.1.2] - 2026-06-27
+
+### Changed
+- Fixed Quest package metadata so generated `mod.json` matches the next release version and current public repository metadata
+- Updated the packaged mod description to reflect the in-game scan/delete UI instead of the old dry-run helper wording
+- Removed the tool-generated `porter` field from the public qmod manifest template
+
 ## [0.1.1] - 2026-06-27
 
 ### Added

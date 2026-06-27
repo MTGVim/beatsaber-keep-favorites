@@ -15,7 +15,7 @@
 A repository for **keeping only favorite custom songs and cleaning up the rest** on Quest Beat Saber.
 
 Current direction: **mod-first**, while **preserving the CLI track**.
-- Primary implementation: an in-game Beat Saber helper mod
+- Primary implementation: an in-game Beat Saber mod with scan/delete UI
 - Preserved track: a CLI / dry-run tool that uses the same business logic
 
 ## Currently confirmed facts
@@ -43,20 +43,20 @@ Current direction: **mod-first**, while **preserving the CLI track**.
 - `tmp/PlayerData.dat`
 - `tmp/CachedSongData.json`
 
-## Target logic
+## Current mod behavior
 1. Read `favoritesLevelIds` from `PlayerData.dat`
-2. Resolve `song path -> sha1` using `CachedSongData.json` or a fallback hash calculation
+2. Resolve `song path -> sha1` using `CachedSongData.json` or SongCore runtime data
 3. Decide keep/delete using `custom_level_<SHA1>`
-4. Print the deletion candidate list in dry-run mode
-5. Only perform real deletion when `--apply` is used
+4. Show the scan result in the in-game UI with counts and status text
+5. Only delete non-favorite song folders after explicit user confirmation
 
 ## Safety principles
-- Default behavior should be `dry-run`
+- Never delete automatically on startup or scan
 - Back up `PlayerData.dat` before a real delete
 - Run only while Beat Saber is fully closed
 - Delete entire **song folders**, not individual files
 
 ## Tracks
-- `mod/`: in-game Beat Saber helper mod implementation
+- `mod/`: in-game Beat Saber scan/delete mod implementation
 - `cli/`: external dry-run / analysis / backup CLI track
 - `docs/plans/`: implementation planning documents

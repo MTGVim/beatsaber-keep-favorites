@@ -15,7 +15,7 @@
 Quest Beat Saber에서 **즐겨찾기한 곡만 남기고 나머지 커스텀 곡을 정리**하기 위한 리포지토리예요.
 
 현재 방향은 **모드 우선**, **CLI는 보존**이에요.
-- 1차 구현: Beat Saber 내부 helper mod
+- 1차 구현: Beat Saber 내부 scan/delete UI 모드
 - 보존 트랙: 같은 비즈니스 로직을 쓰는 CLI / dry-run 도구
 
 ## 현재 확인된 사실
@@ -43,20 +43,20 @@ Quest Beat Saber에서 **즐겨찾기한 곡만 남기고 나머지 커스텀 �
 - `tmp/PlayerData.dat`
 - `tmp/CachedSongData.json`
 
-## 목표 로직
+## 현재 모드 동작
 1. `PlayerData.dat`에서 `favoritesLevelIds` 읽기
-2. `CachedSongData.json` 또는 fallback hash 계산으로 `song path -> sha1` 확보
+2. `CachedSongData.json` 또는 SongCore 런타임 데이터로 `song path -> sha1` 확보
 3. `custom_level_<SHA1>` 기준으로 keep/delete 판정
-4. dry-run으로 삭제 예정 목록 출력
-5. `--apply`에서만 실제 삭제
+4. 게임 내부 UI에서 스캔 결과, 개수, 상태 문구 표시
+5. 사용자가 명시적으로 확인했을 때만 non-favorite 곡 폴더 삭제
 
 ## 안전 원칙
-- 기본 동작은 `dry-run`
+- 스캔이나 시작만으로 자동 삭제하지 않음
 - 실제 삭제 전 `PlayerData.dat` 백업
 - Beat Saber 완전히 종료한 상태에서 실행
 - 삭제 단위는 개별 파일이 아니라 **곡 폴더 전체**
 
 ## 트랙
-- `mod/`: Beat Saber 내부 helper mod 구현 트랙
+- `mod/`: Beat Saber 내부 scan/delete UI 모드 구현 트랙
 - `cli/`: 외부 dry-run / 분석 / 백업용 CLI 트랙
 - `docs/plans/`: 구현 계획 문서
