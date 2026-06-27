@@ -1,0 +1,140 @@
+name: Versioned release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  module_id: KeepFavorites
+  qmod_name: KeepFavorites
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+          lfs: true
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v3
+
+      - name: Setup canary NDK
+        id: setup-ndk
+        uses: ./.github/actions/canary-ndk
+
+      - name: Write NDK path
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '${{ steps.setup-ndk.outputs.ndk-path }}' > "$GITHUB_WORKSPACE/mod/ndkpath.txt"
+          cat "$GITHUB_WORKSPACE/mod/ndkpath.txt"
+
+      - name: Setup QPM
+        uses: Fernthedev/qpm-action@v1
+        with:
+          package_path: ./mod
+          workflow_token: ${{ secrets.GITHUB_TOKEN }}
+          restore: true
+          cache: true
+          resolve_ndk: false
+
+      - name: Generate mod manifest
+        working-directory: ./mod
+        shell: bash
+        run: qpm qmod manifest
+
+      - name: Build shared library
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/build.ps1
+
+      - name: Create qmod
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/createqmod.ps1 KeepFavorites
+
+      - name: Resolve tag metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [ -z "$tag" ] || [ "$tag" = "main" ]; then
+            tag="$(git describe --tags --exact-match 2>/dev/null || true)"
+          fi
+          if [ -z "$tag" ]; then
+            echo 'Could not resolve a release tag for this run.' >&2
+            exit 1
+          fi
+          version="${tag#v}"
+          prev_tag="$(git tag --sort=-v:refname | grep '^v' | grep -vx "$tag" | head -n1 || true)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prev_tag=$prev_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Stage release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/keepfavorites-release"
+          cp ./mod/build/libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-release/"
+          if [ -f ./mod/build/debug_libKeepFavorites.so ]; then
+            cp ./mod/build/debug_libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-release/"
+          fi
+          cp ./mod/KeepFavorites.qmod "$RUNNER_TEMP/keepfavorites-release/"
+          compare_url=""
+          if [ -n '${{ steps.meta.outputs.prev_tag }}' ]; then
+            compare_url="https://github.com/${{ github.repository }}/compare/${{ steps.meta.outputs.prev_tag }}...${{ steps.meta.outputs.tag }}"
+          fi
+          {
+            echo "# Keep Favorites ${{ steps.meta.outputs.tag }}"
+            echo
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            if [ -n '${{ steps.meta.outputs.prev_tag }}' ]; then
+              echo "- Compare: $compare_url"
+            else
+              echo "- Compare: initial tagged release"
+            fi
+            echo
+            echo "## Assets"
+            echo "- KeepFavorites.qmod"
+            echo "- libKeepFavorites.so"
+            if [ -f ./mod/build/debug_libKeepFavorites.so ]; then
+              echo "- debug_libKeepFavorites.so"
+            fi
+          } > "$RUNNER_TEMP/keepfavorites-release/NOTES.md"
+          ls -l "$RUNNER_TEMP/keepfavorites-release"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: keepfavorites-${{ steps.meta.outputs.tag }}
+          path: ${{ runner.temp }}/keepfavorites-release
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release delete '${{ steps.meta.outputs.tag }}' -y 2>/dev/null || true
+          assets=("$RUNNER_TEMP/keepfavorites-release/KeepFavorites.qmod" "$RUNNER_TEMP/keepfavorites-release/libKeepFavorites.so")
+          if [ -f "$RUNNER_TEMP/keepfavorites-release/debug_libKeepFavorites.so" ]; then
+            assets+=("$RUNNER_TEMP/keepfavorites-release/debug_libKeepFavorites.so")
+          fi
+          gh release create '${{ steps.meta.outputs.tag }}' "${assets[@]}" \
+            --target '${{ github.sha }}' \
+            --title 'Keep Favorites ${{ steps.meta.outputs.tag }}' \
+            --notes-file "$RUNNER_TEMP/keepfavorites-release/NOTES.md"

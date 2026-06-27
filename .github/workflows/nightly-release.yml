@@ -114,14 +114,30 @@ jobs:
             cp ./mod/build/debug_libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-nightly/"
           fi
           cp ./mod/KeepFavorites.qmod "$RUNNER_TEMP/keepfavorites-nightly/"
-          cat > "$RUNNER_TEMP/keepfavorites-nightly/NOTES.md" <<EOF
-          Nightly build for Keep Favorites.
-
-          Commit: ${{ steps.gate.outputs.current_sha }}
-          Previous nightly commit: ${{ steps.gate.outputs.last_sha }}
-          Source branch: main
-          Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
+          compare_url=""
+          if [ -n '${{ steps.gate.outputs.last_sha }}' ]; then
+            compare_url="https://github.com/${{ github.repository }}/compare/${{ steps.gate.outputs.last_sha }}...${{ steps.gate.outputs.current_sha }}"
+          fi
+          {
+            echo "# Keep Favorites nightly"
+            echo
+            echo "- Commit: ${{ steps.gate.outputs.current_sha }}"
+            echo "- Previous nightly commit: ${{ steps.gate.outputs.last_sha }}"
+            echo "- Source branch: main"
+            echo "- Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            if [ -n "$compare_url" ]; then
+              echo "- Compare: $compare_url"
+            else
+              echo "- Compare: first nightly release"
+            fi
+            echo
+            echo "## Assets"
+            echo "- KeepFavorites.qmod"
+            echo "- libKeepFavorites.so"
+            if [ -f ./mod/build/debug_libKeepFavorites.so ]; then
+              echo "- debug_libKeepFavorites.so"
+            fi
+          } > "$RUNNER_TEMP/keepfavorites-nightly/NOTES.md"
           ls -l "$RUNNER_TEMP/keepfavorites-nightly"
 
       - name: Upload nightly artifacts
@@ -147,4 +163,5 @@ jobs:
           gh release create nightly "${assets[@]}" \
             --target '${{ steps.gate.outputs.current_sha }}' \
             --title 'Nightly' \
+            --prerelease \
             --notes-file "$RUNNER_TEMP/keepfavorites-nightly/NOTES.md"
