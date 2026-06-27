@@ -1,0 +1,15 @@
+tmp/
+__pycache__/
+*.pyc
+.DS_Store
+
+!docs/
+!docs/**
+
+mod/build/
+mod/extern/
+mod/qpm.shared.json
+mod/mod.json
+mod/ndkpath.txt
+mod/artifacts/mac-build/
+mod/notes.md

@@ -1,0 +1,20 @@
+{
+  "_QPVersion": "1.1.0",
+  "name": "Keep Favorites",
+  "id": "KeepFavorites",
+  "modloader": "Scotland2",
+  "author": "tigeryoo",
+  "porter": "Hermes",
+  "version": "0.1.0",
+  "description": "Dry-run helper for keeping favorited custom songs on Beat Saber Quest.",
+  "packageVersion": "1.40.8_7379",
+  "dependencies": [],
+  "modFiles": [],
+  "lateModFiles": [
+    "libKeepFavorites.so"
+  ],
+  "libraryFiles": [],
+  "fileCopies": [],
+  "copyExtensions": [],
+  "coverImage": ""
+}

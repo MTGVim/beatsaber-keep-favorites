@@ -1,0 +1,81 @@
+{
+  "$schema": "https://raw.githubusercontent.com/QuestPackageManager/QPM.Package/refs/heads/main/qpm.schema.json",
+  "version": "0.4.0",
+  "sharedDir": "shared",
+  "dependenciesDir": "extern",
+  "info": {
+    "name": "Keep Favorites",
+    "id": "KeepFavorites",
+    "version": "0.1.0",
+    "url": "https://github.com/MTGVim/beatsaber-keep-favorites",
+    "additionalData": {
+      "overrideSoName": "libKeepFavorites.so",
+      "cmake": true
+    }
+  },
+  "workspace": {
+    "scripts": {
+      "build": ["pwsh scripts/build.ps1 $0:?"],
+      "clean": ["qpm s build -- -clean"],
+      "copy": ["pwsh scripts/copy.ps1 $0:?"],
+      "log": ["pwsh scripts/start-logging.ps1 $0:?"],
+      "qmod": ["pwsh scripts/createqmod.ps1 KeepFavorites"],
+      "restart": ["pwsh scripts/restart-game.ps1 $0:?"],
+      "tomb": ["pwsh scripts/pull-tombstone.ps1 $0:?"]
+    },
+    "ndk": "^27.3.13750724",
+    "qmodIncludeDirs": ["./build", "./extern/libs"],
+    "qmodIncludeFiles": [],
+    "qmodOutput": "KeepFavorites.qmod"
+  },
+  "dependencies": [
+    {
+      "id": "beatsaber-hook",
+      "versionRange": "^6.4.2",
+      "additionalData": {}
+    },
+    {
+      "id": "bs-cordl",
+      "versionRange": "4008.*",
+      "additionalData": {}
+    },
+    {
+      "id": "bsml",
+      "versionRange": "^0.4.55",
+      "additionalData": {}
+    },
+    {
+      "id": "config-utils",
+      "versionRange": "^2.0.3",
+      "additionalData": {}
+    },
+    {
+      "id": "custom-types",
+      "versionRange": "^0.18.4",
+      "additionalData": {}
+    },
+    {
+      "id": "fmt",
+      "versionRange": "^11.0.2",
+      "additionalData": {}
+    },
+    {
+      "id": "paper2_scotland2",
+      "versionRange": "^4.7.0",
+      "additionalData": {}
+    },
+    {
+      "id": "scotland2",
+      "versionRange": "^0.1.6",
+      "additionalData": {
+        "includeQmod": false,
+        "private": true
+      }
+    },
+    {
+      "id": "songcore",
+      "versionRange": "^1.1.25",
+      "additionalData": {}
+    }
+  ]
+}
