@@ -92,28 +92,16 @@ jobs:
             cp ./mod/build/debug_libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-release/"
           fi
           cp ./mod/KeepFavorites.qmod "$RUNNER_TEMP/keepfavorites-release/"
-          compare_url=""
-          if [ -n '${{ steps.meta.outputs.prev_tag }}' ]; then
-            compare_url="https://github.com/${{ github.repository }}/compare/${{ steps.meta.outputs.prev_tag }}...${{ steps.meta.outputs.tag }}"
-          fi
-          {
-            echo "# Keep Favorites ${{ steps.meta.outputs.tag }}"
-            echo
-            echo "- Commit: ${{ github.sha }}"
-            echo "- Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            if [ -n '${{ steps.meta.outputs.prev_tag }}' ]; then
-              echo "- Compare: $compare_url"
-            else
-              echo "- Compare: initial tagged release"
-            fi
-            echo
-            echo "## Assets"
-            echo "- KeepFavorites.qmod"
-            echo "- libKeepFavorites.so"
-            if [ -f ./mod/build/debug_libKeepFavorites.so ]; then
-              echo "- debug_libKeepFavorites.so"
-            fi
-          } > "$RUNNER_TEMP/keepfavorites-release/NOTES.md"
+          python3 ./scripts/render_release_notes.py \
+            --changelog ./CHANGELOG.md \
+            --version '${{ steps.meta.outputs.version }}' \
+            --tag '${{ steps.meta.outputs.tag }}' \
+            --repo '${{ github.repository }}' \
+            --commit '${{ github.sha }}' \
+            --run-url 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}' \
+            --target-version '1.40.8' \
+            --prev-tag '${{ steps.meta.outputs.prev_tag }}' \
+            --output "$RUNNER_TEMP/keepfavorites-release/NOTES.md"
           ls -l "$RUNNER_TEMP/keepfavorites-release"
 
       - name: Upload release artifacts
