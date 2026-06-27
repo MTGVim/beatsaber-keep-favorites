@@ -1,0 +1,150 @@
+name: Nightly release
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: Force a nightly release even if the latest commit matches the existing nightly release
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: '0 15 * * *'
+
+permissions:
+  contents: write
+
+env:
+  module_id: KeepFavorites
+  qmod_name: KeepFavorites
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: true
+          lfs: true
+
+      - name: Decide whether release is needed
+        id: gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_RELEASE: ${{ github.event.inputs.force_release || 'false' }}
+        run: |
+          set -euo pipefail
+          current_sha="$(git rev-parse HEAD)"
+          last_sha="$(gh api repos/${{ github.repository }}/releases/tags/nightly --jq '.body' 2>/dev/null | sed -n 's/^Commit: //p' | head -n1 || true)"
+          echo "current_sha=$current_sha" >> "$GITHUB_OUTPUT"
+          echo "last_sha=$last_sha" >> "$GITHUB_OUTPUT"
+          if [ "$FORCE_RELEASE" = "true" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$last_sha" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif [ "$current_sha" != "$last_sha" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop early when nothing changed
+        if: steps.gate.outputs.changed != 'true'
+        shell: bash
+        run: |
+          echo "Nightly release skipped: main has not changed since the current nightly release."
+
+      - name: Setup Ninja
+        if: steps.gate.outputs.changed == 'true'
+        uses: seanmiddleditch/gha-setup-ninja@v3
+
+      - name: Setup canary NDK
+        if: steps.gate.outputs.changed == 'true'
+        id: setup-ndk
+        uses: ./.github/actions/canary-ndk
+
+      - name: Write NDK path
+        if: steps.gate.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '${{ steps.setup-ndk.outputs.ndk-path }}' > "$GITHUB_WORKSPACE/mod/ndkpath.txt"
+          cat "$GITHUB_WORKSPACE/mod/ndkpath.txt"
+
+      - name: Setup QPM
+        if: steps.gate.outputs.changed == 'true'
+        uses: Fernthedev/qpm-action@v1
+        with:
+          package_path: ./mod
+          workflow_token: ${{ secrets.GITHUB_TOKEN }}
+          restore: true
+          cache: true
+          resolve_ndk: false
+
+      - name: Generate mod manifest
+        if: steps.gate.outputs.changed == 'true'
+        working-directory: ./mod
+        shell: bash
+        run: qpm qmod manifest
+
+      - name: Build shared library
+        if: steps.gate.outputs.changed == 'true'
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/build.ps1
+
+      - name: Create qmod
+        if: steps.gate.outputs.changed == 'true'
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/createqmod.ps1 KeepFavorites
+
+      - name: Stage nightly artifacts
+        if: steps.gate.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/keepfavorites-nightly"
+          cp ./mod/build/libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-nightly/"
+          if [ -f ./mod/build/debug_libKeepFavorites.so ]; then
+            cp ./mod/build/debug_libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-nightly/"
+          fi
+          cp ./mod/KeepFavorites.qmod "$RUNNER_TEMP/keepfavorites-nightly/"
+          cat > "$RUNNER_TEMP/keepfavorites-nightly/NOTES.md" <<EOF
+          Nightly build for Keep Favorites.
+
+          Commit: ${{ steps.gate.outputs.current_sha }}
+          Previous nightly commit: ${{ steps.gate.outputs.last_sha }}
+          Source branch: main
+          Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+          ls -l "$RUNNER_TEMP/keepfavorites-nightly"
+
+      - name: Upload nightly artifacts
+        if: steps.gate.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: keepfavorites-nightly
+          path: ${{ runner.temp }}/keepfavorites-nightly
+          if-no-files-found: error
+
+      - name: Recreate nightly release
+        if: steps.gate.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release delete nightly --cleanup-tag -y 2>/dev/null || true
+          assets=("$RUNNER_TEMP/keepfavorites-nightly/KeepFavorites.qmod" "$RUNNER_TEMP/keepfavorites-nightly/libKeepFavorites.so")
+          if [ -f "$RUNNER_TEMP/keepfavorites-nightly/debug_libKeepFavorites.so" ]; then
+            assets+=("$RUNNER_TEMP/keepfavorites-nightly/debug_libKeepFavorites.so")
+          fi
+          gh release create nightly "${assets[@]}" \
+            --target '${{ steps.gate.outputs.current_sha }}' \
+            --title 'Nightly' \
+            --notes-file "$RUNNER_TEMP/keepfavorites-nightly/NOTES.md"

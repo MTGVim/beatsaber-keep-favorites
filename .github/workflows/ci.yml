@@ -1,0 +1,93 @@
+name: Quest mod CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'assets/**'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'assets/**'
+
+permissions:
+  contents: read
+
+env:
+  module_id: KeepFavorites
+  qmod_name: KeepFavorites
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: true
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v3
+
+      - name: Setup canary NDK
+        id: setup-ndk
+        uses: ./.github/actions/canary-ndk
+
+      - name: Write NDK path
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '${{ steps.setup-ndk.outputs.ndk-path }}' > "$GITHUB_WORKSPACE/mod/ndkpath.txt"
+          cat "$GITHUB_WORKSPACE/mod/ndkpath.txt"
+
+      - name: Setup QPM
+        uses: Fernthedev/qpm-action@v1
+        with:
+          package_path: ./mod
+          workflow_token: ${{ secrets.GITHUB_TOKEN }}
+          restore: true
+          cache: true
+          resolve_ndk: false
+
+      - name: Generate mod manifest
+        working-directory: ./mod
+        shell: bash
+        run: qpm qmod manifest
+
+      - name: Build shared library
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/build.ps1
+
+      - name: Create qmod
+        working-directory: ./mod
+        shell: pwsh
+        run: ./scripts/createqmod.ps1 KeepFavorites
+
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/keepfavorites-artifacts"
+          cp ./mod/build/libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-artifacts/"
+          if [ -f ./mod/build/debug_libKeepFavorites.so ]; then
+            cp ./mod/build/debug_libKeepFavorites.so "$RUNNER_TEMP/keepfavorites-artifacts/"
+          fi
+          cp ./mod/KeepFavorites.qmod "$RUNNER_TEMP/keepfavorites-artifacts/"
+          ls -l "$RUNNER_TEMP/keepfavorites-artifacts"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: keepfavorites-ci
+          path: ${{ runner.temp }}/keepfavorites-artifacts
+          if-no-files-found: error
